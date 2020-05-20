@@ -1,6 +1,7 @@
 package pubsub_test
 
 import (
+	"sort"
 	"testing"
 	"time"
 
@@ -36,7 +37,9 @@ func TestManyToOne(t *testing.T) {
 	defer h.Close()
 	p1 := h.NewPublisher("foo")
 	p2 := h.NewPublisher("bar")
-	s := h.NewSubscriber().Subscribe("foo", "bar")
+	s := h.NewSubscriber().
+		Subscribe("foo").
+		Subscribe("bar")
 	defer s.Close()
 	p1.Publish("hello")
 	assert.Equal(t, "hello", <-s.C)
@@ -49,9 +52,13 @@ func TestManyToMany(t *testing.T) {
 	defer h.Close()
 	p1 := h.NewPublisher("foo")
 	p2 := h.NewPublisher("bar")
-	s1 := h.NewSubscriber().Subscribe("foo", "bar")
+	s1 := h.NewSubscriber().
+		Subscribe("foo").
+		Subscribe("bar")
 	defer s1.Close()
-	s2 := h.NewSubscriber().Subscribe("foo", "bar")
+	s2 := h.NewSubscriber().
+		Subscribe("foo").
+		Subscribe("bar")
 	defer s2.Close()
 	p1.Publish("hello")
 	assert.Equal(t, "hello", <-s1.C)
@@ -65,7 +72,7 @@ func TestSubscribe(t *testing.T) {
 	h := pubsub.NewHub()
 	defer h.Close()
 	p := h.NewPublisher("topic")
-	assert.Equal(t, "topic", p.Topic())
+	assert.Equal(t, []string{"topic"}, p.Topic())
 	assert.False(t, p.HasSubscribers())
 	s := h.NewSubscriber()
 	defer s.Close()
@@ -73,11 +80,11 @@ func TestSubscribe(t *testing.T) {
 	assert.Zero(t, len(s.Topics()))
 	s.Subscribe("topic")
 	assert.True(t, s.IsSubscribed("topic"))
-	assert.Equal(t, []string{"topic"}, s.Topics())
+	assert.Equal(t, [][]string{[]string{"topic"}}, s.Topics())
 	assert.True(t, p.HasSubscribers())
 	s.Unsubscribe("does not exist")
 	assert.True(t, s.IsSubscribed("topic"))
-	assert.Equal(t, []string{"topic"}, s.Topics())
+	assert.Equal(t, [][]string{[]string{"topic"}}, s.Topics())
 	assert.True(t, p.HasSubscribers())
 	s.Unsubscribe("topic")
 	assert.False(t, s.IsSubscribed("topic"))
@@ -139,4 +146,22 @@ func TestLazyClose(t *testing.T) {
 	assert.Zero(t, <-s.C)
 	assert.Zero(t, <-s.C)
 	assert.Zero(t, <-s.C)
+}
+
+func TestNestedSubscribers(t *testing.T) {
+	h := pubsub.NewHub()
+	p0 := h.NewPublisher()
+	p1 := h.NewPublisher("foo")
+	p2 := h.NewPublisher("foo", "bar")
+	p3 := h.NewPublisher("foo", "baz", "greg")
+	s := h.NewSubscriber(pubsub.WithCapacity(3)).Subscribe("foo")
+
+	p0.Publish("a") // s should not receive messages from p0
+	p1.Publish("b")
+	p2.Publish("c")
+	p3.Publish("d")
+
+	msgs := []string{(<-s.C).(string), (<-s.C).(string), (<-s.C).(string)}
+	sort.Strings(msgs)
+	assert.Equal(t, []string{"b", "c", "d"}, msgs)
 }
