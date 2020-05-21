@@ -24,20 +24,14 @@ func Example() {
 		Subscribe("cher")
 
 	// Start goroutines to listen on publications.
-	done := make(chan struct{})
 	recv := make(chan string, 10)
 	wg := sync.WaitGroup{}
 	for i, s := range []*pubsub.Subscriber{s1, s2, s3} {
 		wg.Add(1)
 		go func(i int, s *pubsub.Subscriber) {
 			defer wg.Done()
-			for {
-				select {
-				case msg := <-s.C:
-					recv <- fmt.Sprintf("s%d: %s", i+1, msg.(string))
-				case <-done:
-					return
-				}
+			for msg := range s.C {
+				recv <- fmt.Sprintf("s%d: %s", i+1, msg.(string))
 			}
 		}(i, s)
 	}
@@ -59,7 +53,15 @@ func Example() {
 	s2.Unsubscribe("bob", "marley")
 	p2.Publish("i shot the sherriff")
 
-	close(done)
+	if err := s1.Close(); err != nil {
+		panic(err)
+	}
+	if err := s2.Close(); err != nil {
+		panic(err)
+	}
+	if err := s3.Close(); err != nil {
+		panic(err)
+	}
 	wg.Wait()
 	close(recv)
 

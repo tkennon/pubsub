@@ -15,14 +15,18 @@ var (
 // Hub is the hub of the publisher-subscriber model. All messages pass through
 // it, and all new Publishers and Subscribers are created from it.
 type Hub struct {
-	subscribersMtx sync.RWMutex
-	subscribers    map[*Subscriber]bool
-
+	// children stores a tree of child Hubs, each with subscribers and children
+	// of their own.
 	childrenMtx sync.RWMutex
 	children    map[string]*Hub
+
+	// subscribers holds the set of all subscribers that have subscribed to
+	// messages at this 'level'.
+	subscribersMtx sync.RWMutex
+	subscribers    map[*Subscriber]bool
 }
 
-// NewHub returns a new Hub that can be used to pubslish and subscribe to
+// NewHub returns a new Hub that can be used to pubslish, and subscribe to,
 // messages.
 func NewHub() *Hub {
 	return &Hub{
@@ -42,6 +46,15 @@ func GlobalHub() *Hub {
 	return globalHub
 }
 
+// publish sends the message to all subscribers at the current level before
+// recursively walking the branch of the Hub tree described by keys. If the
+// branch does not exist then the recursion ends.
+//
+// For example, if there are two subscribers; one subscribed to ["alice"] and
+// another subscribed to ["alice", "bob"], then this function will publish
+// messages for ["alice"] to _only_ the first subscriber, and messages to
+// ["alice", "bob"] to both subscribers (since ["alice"] captures
+// ["alice", "bob"]).
 func (h *Hub) publish(msg interface{}, keys ...string) {
 	// Send message to all subscribers at this level.
 	h.subscribersMtx.RLock()
@@ -55,7 +68,7 @@ func (h *Hub) publish(msg interface{}, keys ...string) {
 		return
 	}
 
-	// Otherwise notify all child hubs.
+	// Otherwise notify all child Hubs.
 	h.childrenMtx.RLock()
 	child, ok := h.children[keys[0]]
 	h.childrenMtx.RUnlock()
@@ -65,6 +78,15 @@ func (h *Hub) publish(msg interface{}, keys ...string) {
 	child.publish(msg, keys[1:]...)
 }
 
+// addSubscriber adds a subscriber to the Hubs children on the branch specified
+// by the keys. The subscriber will be sent all messages that are published to
+// it's branch and all sub-branches. If necessary, new child Hubs are created if
+// they do not exist for the specified branch.
+//
+// For example, addSubscriber(s, "alice", "bob") will store the subscriber in
+// h.child["alice"].child["bob"].subscribers. Messages published to
+// ["alice", "bob", ...] will be sent to s, but messages published to
+// ["alice"] alone will not.
 func (h *Hub) addSubscriber(s *Subscriber, keys ...string) {
 	if len(keys) == 0 {
 		h.subscribersMtx.Lock()
@@ -83,6 +105,8 @@ func (h *Hub) addSubscriber(s *Subscriber, keys ...string) {
 	child.addSubscriber(s, keys[1:]...)
 }
 
+// removeSubscriber removes the subscriber from the branch of the Hub given by
+// keys. If no more subscribers remain for a child Hub then it is deleted.
 func (h *Hub) removeSubscriber(s *Subscriber, keys ...string) {
 	if len(keys) == 0 {
 		h.subscribersMtx.Lock()
@@ -104,6 +128,8 @@ func (h *Hub) removeSubscriber(s *Subscriber, keys ...string) {
 	}
 }
 
+// hasSubscribers checks if the branch specified by keys has any subscribers or
+// any child Hubs (which indicate subscribers exist at deeper levels).
 func (h *Hub) hasSubscribers(keys ...string) bool {
 	if len(keys) == 0 {
 		h.subscribersMtx.RLock()

@@ -131,20 +131,15 @@ func TestBlocking(t *testing.T) {
 func TestGlobalHub(t *testing.T) {
 	p := pubsub.GlobalHub().NewPublisher("topic")
 	s := pubsub.GlobalHub().NewSubscriber().Subscribe("topic")
-	defer s.Close()
 	p.Publish("hello")
 	assert.Equal(t, "hello", <-s.C)
 }
 
-func TestLazyClose(t *testing.T) {
+func TestClose(t *testing.T) {
 	h := pubsub.NewHub()
-	p := h.NewPublisher("topic")
 	s := h.NewSubscriber().Subscribe("topic")
-	p.Publish("foo")
 	h.Close()
 	// Check that the subscriber channel returns the zero value immediately.
-	assert.Zero(t, <-s.C)
-	assert.Zero(t, <-s.C)
 	assert.Zero(t, <-s.C)
 }
 

@@ -29,8 +29,13 @@ type Subscriber struct {
 	dropped uint64
 }
 
-// NewSubscriber returns a new object that will receive messages about topics it
-// subscribes to.
+// NewSubscriber returns a new object that will receive messages about a topic
+// it is subscribed to. A Subscriber may subscribe to multiple topics. By
+// default, if the Subscriber is not ready to receive a message when it is
+// published, the message will be dropped. To add a non-zero buffer to the
+// Subscriber's channel, use the WithCapacity() SubscriberOption. To prevent
+// dropping of messages altogether then use WithoutDrop() SubscriberOption. Note
+// that if misused, this option can result in code deadlocking.
 func (h *Hub) NewSubscriber(opts ...SubscriberOption) *Subscriber {
 	s := &Subscriber{
 		C:         make(chan interface{}, defaultCapacity),
@@ -49,7 +54,7 @@ type SubscriberOption func(*Subscriber)
 
 // WithCapacity sets the capacity of the Subscriber channel. This will be the
 // number of messages that can be published to the Subscriber without them being
-// read before they are either dropped or Publishers block while publishing
+// read before they are either dropped or Publisher blocks while publishing
 // (depending on whether WithoutDrop() has been called at Subscriber creation).
 func WithCapacity(cap int) SubscriberOption {
 	return func(s *Subscriber) {
@@ -65,11 +70,20 @@ func WithoutDrop() SubscriberOption {
 	}
 }
 
-// Subscribe adds the topics to the set of topics the Subscriber will be
-// notified about. Messages published on these topics will be sent to the
-// Subscriber's channel. It is important that this channel is read from to
-// prevent data loss, or Publishers blocking on calls to Publish(). It returns
-// the Subscriber for convenience of chaining functions.
+// Subscribe adds the topic to the set of topics the Subscriber is subscribed
+// to, and will therefore receive messages about. Messages published on this
+// topic will be sent to the Subscriber's channel. It is important that this
+// channel is read from to prevent data loss, or Publishers blocking on calls to
+// Publish(). This method returns the Subscriber for convenience of chaining
+// functions, e.g.:
+//    s := NewSubscriber().Subscribe("alice").Subscribe("bob")
+// creates a new Subscriber that is subscribed to both "alice" and "bob" topics.
+// To Subscribe to a subtopic, simply specify multiple strings in a call to
+// Subscribe, e.g.:
+//    s := NewSubscriber().Subscribe("alice", "bob")
+// creates a new Subscriber that is notified about messages published to the
+// ["alice", "bob"] subtopic, but not the ["alice"] topic. This feature allows
+// fine grained subscriptions to be made.
 func (s *Subscriber) Subscribe(keys ...string) *Subscriber {
 	s.hub.addSubscriber(s, keys...)
 	s.topicsMtx.Lock()
@@ -78,8 +92,8 @@ func (s *Subscriber) Subscribe(keys ...string) *Subscriber {
 	return s
 }
 
-// Unsubscribe removes the topics from the set of topics that the Subscriber is
-// notified about. If the Subscriber is not subscribed to a topic, then this
+// Unsubscribe removes the topic from the set of topics that the Subscriber is
+// subscribed to. If the Subscriber is not subscribed to the topic, then this
 // method is a no-op.
 func (s *Subscriber) Unsubscribe(keys ...string) *Subscriber {
 	s.topicsMtx.Lock()
@@ -127,19 +141,18 @@ func (s *Subscriber) Close() error {
 func (s *Subscriber) closeAndDrain() {
 	s.closeOnce.Do(func() {
 		close(s.C)
-		for range s.C {
-			<-s.C
-		}
 	})
 }
 
-// NumSent returns a count of the number of messages sent to the Subscriber.
+// NumSent returns a count of the number of messages sent to the Subscriber
+// across all topic subscriptions.
 func (s *Subscriber) NumSent() uint64 {
 	return atomic.LoadUint64(&s.sent)
 }
 
 // NumDropped returns a count of the number of messages dropped by the
-// Subscriber because its channel was full.
+// Subscriber across all topics because its channel was full at the time the
+// message was published.
 func (s *Subscriber) NumDropped() uint64 {
 	return atomic.LoadUint64(&s.dropped)
 }
@@ -159,6 +172,7 @@ func (s *Subscriber) send(msg interface{}) {
 	}
 }
 
+// equalTopics is a helper function to compare two topics (string slices).
 func equalTopics(a, b []string) bool {
 	if a == nil || b == nil {
 		return false
