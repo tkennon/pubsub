@@ -6,7 +6,7 @@ passing of any type from many Publishers to many Subscribers.
 ## Topics
 
 The notion of a "topic" is key to `pubsub`. A topic is a list of strings that
-uniquely identifies a the type of message being sent. For example
+uniquely identifies the type of message being sent. For example
 `"button_pressed"` might define the topic of buttons being pressed. Publishers
 may publish messages about buttons being pressed, and Subscribers may choose to
 listen for them. Subtopics are easily defined by specifying a second, or third,
@@ -45,7 +45,7 @@ subcribes to a subtopic of something.
 
 ## Subscribers
 
-Subscribers are created with `NewSubscriber()`, and can subscribe or unsubscrive
+Subscribers are created with `NewSubscriber()`, and can subscribe or unsubscribe
 to topics through the methods `Subscribe()` and `Unsubscribe()`. Note that both
 methods return the Subscriber object so that these methods may be chained:
 ```
