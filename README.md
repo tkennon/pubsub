@@ -1,5 +1,7 @@
 # pubsub
 
+[![GoDoc](https://godoc.org/github.com/tkennon/pubsub?status.svg)](https://godoc.org/github.com/tkennon/pubsub)
+
 An in-memory publisher-subscriber framework for single processes. Allows message
 passing of any type from many Publishers to many Subscribers.
 
