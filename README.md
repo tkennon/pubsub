@@ -77,3 +77,7 @@ subscribing goroutine.
 Publishers and Subscribers accept and return `interface{}` values as messages,
 so it is up to the subscribing goroutine to type cast the received message to
 the concrete type that is expected.
+
+## API stability
+
+`v1.0.0` is tagged and should be considered stable.
