@@ -15,10 +15,10 @@ const (
 type Subscriber struct {
 	// These fields are written once at creation, and then read from thereafter.
 	// They require no synchronisation.
-	C         chan interface{}
 	closeOnce sync.Once
 	hub       *Hub
 	allowDrop bool
+	C         chan interface{} // The Subscriber's message channel.
 
 	// These fields require locking.
 	topicsMtx sync.RWMutex
@@ -29,17 +29,17 @@ type Subscriber struct {
 	dropped uint64
 }
 
-// NewSubscriber returns a new object that will receive messages about a topic
-// it is subscribed to. A Subscriber may subscribe to multiple topics. By
-// default, if the Subscriber is not ready to receive a message when it is
-// published, then the publishing goroutine wait for it to be ready. To add a
-// non-zero buffer to the Subscriber's channel, use the WithCapacity()
-// SubscriberOption. To allow dropping of messages if a Subscriber channel is
-// full then use WithAllowDrop() SubscriberOption.
+// NewSubscriber returns a new object that will receive messages about topics it
+// is subscribed to. A Subscriber may subscribe to multiple topics. By default,
+// if the Subscriber is not ready to receive a message when it is published, the
+// publishing goroutine will wait for it to be ready. To add a non-zero buffer
+// to the Subscriber's channel, use the WithCapacity() SubscriberOption. To
+// allow dropping of messages if a Subscriber channel is full then use
+// WithAllowDrop() SubscriberOption.
 func (h *Hub) NewSubscriber(opts ...SubscriberOption) *Subscriber {
 	s := &Subscriber{
-		C:   make(chan interface{}, defaultCapacity),
 		hub: h,
+		C:   make(chan interface{}, defaultCapacity),
 	}
 	for _, f := range opts {
 		f(s)
@@ -53,7 +53,7 @@ type SubscriberOption func(*Subscriber)
 
 // WithCapacity sets the capacity of the Subscriber channel. This will be the
 // number of messages that can be published to the Subscriber without them being
-// read before they are either dropped or Publisher blocks while publishing
+// read before they are either dropped or the publishing goroutine blocks
 // (depending on whether WithAllowDrop() has also been called at Subscriber
 // creation).
 func WithCapacity(cap int) SubscriberOption {
@@ -73,18 +73,14 @@ func WithAllowDrop() SubscriberOption {
 }
 
 // Subscribe adds the topic to the set of topics the Subscriber is subscribed
-// to, and will therefore receive messages about. Messages published on this
-// topic will be sent to the Subscriber's channel. It is important that this
-// channel is read from to prevent data loss, or Publishers blocking on calls to
-// Publish(). This method returns the Subscriber for convenience of chaining
-// functions, e.g.:
-//    s := NewSubscriber().Subscribe("alice").Subscribe("bob")
-// creates a new Subscriber that is subscribed to both "alice" and "bob" topics.
+// to. Messages published on this topic will be sent to the Subscriber's
+// channel. This method returns the Subscriber for convenience of chaining
+// methods, e.g. `NewSubscriber().Subscribe("alice").Subscribe("bob")` creates a
+// new Subscriber that is subscribed to both `["alice"]` and `["bob"]` topics.
 // To Subscribe to a subtopic, simply specify multiple strings in a call to
-// Subscribe, e.g.:
-//    s := NewSubscriber().Subscribe("alice", "bob")
-// creates a new Subscriber that is notified about messages published to the
-// ["alice", "bob"] subtopic, but not the ["alice"] topic. This feature allows
+// Subscribe, e.g. `NewSubscriber().Subscribe("alice", "bob")` creates a new
+// Subscriber that is notified about messages published to the `["alice",
+// "bob"]` subtopic, but not the `["alice"]` parent topic. This feature allows
 // fine grained subscriptions to be made.
 func (s *Subscriber) Subscribe(keys ...string) *Subscriber {
 	s.hub.addSubscriber(s, keys...)
@@ -129,18 +125,19 @@ func (s *Subscriber) IsSubscribed(keys ...string) bool {
 	return false
 }
 
-// Close unsubscribes the Subscriber from receiving future messages on all
-// topics, and closes and drains the its channel. It should be called when the
-// Subscriber is no longer needed. Subscribers will be unable to receive any
-// messages after Close() has been called.
+// Close closes the SUbscriber's channel and unsubscribes the it from receiving
+// future messages on all topics. It should be called when the Subscriber is no
+// longer needed. Subscribers will be unable to receive any messages from
+// Publishers after Close() has been called (the zero value of the channel will
+// be yielded immediately).
 func (s *Subscriber) Close() error {
 	s.hub.removeSubscriber(s)
-	s.closeAndDrain()
+	s.close()
 	return nil
 }
 
-// closeAndDrain closes and drains the Subscriber's channel.
-func (s *Subscriber) closeAndDrain() {
+// close closes the Subscriber's channel.
+func (s *Subscriber) close() {
 	s.closeOnce.Do(func() {
 		close(s.C)
 	})

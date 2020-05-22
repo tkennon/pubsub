@@ -12,16 +12,17 @@ import (
 func Example() {
 	h := pubsub.NewHub()
 
-	// Subscribe to everything.
-	s1 := h.NewSubscriber().Subscribe()
-	// Subscribe to p1, p2, and p3.
-	s2 := h.NewSubscriber().
-		Subscribe("bob").
-		Subscribe("adele")
-	// Subscribe to p3 and p4.
-	s3 := h.NewSubscriber().
-		Subscribe("bob", "marley").
-		Subscribe("cher")
+	// Create some Publishers. Note it does not matter whether Publishers or
+	// Subscribers are created first.
+	p1 := h.NewPublisher("adele")
+	p2 := h.NewPublisher("bob")
+	p3 := h.NewPublisher("bob", "marley")
+	p4 := h.NewPublisher("cher")
+
+	// Now create some Subscribers.
+	s1 := h.NewSubscriber().Subscribe()                                  // Subscribe to everything.
+	s2 := h.NewSubscriber().Subscribe("adele").Subscribe("bob")          // Subscribe to p1, p2, and p3.
+	s3 := h.NewSubscriber().Subscribe("bob", "marley").Subscribe("cher") // Subscribe to p3 and p4.
 
 	// Start goroutines to listen on publications.
 	recv := make(chan string, 10)
@@ -36,23 +37,18 @@ func Example() {
 		}(i, s)
 	}
 
-	// Now create some Publishers. Note it does not matter whether Publishers or
-	// Subscribers are created first.
-	p1 := h.NewPublisher("adele")
-	p2 := h.NewPublisher("bob")
-	p3 := h.NewPublisher("bob", "marley")
-	p4 := h.NewPublisher("cher")
-
-	p1.Publish("hello")
-	p2.Publish("one love")
-	p3.Publish("three little birds")
-	p4.Publish("believe")
+	// Publish messages.
+	p1.Publish("hello")              // Will be sent to s1 and s2.
+	p2.Publish("one love")           // Will be sent to s1 and s2.
+	p3.Publish("three little birds") // Will be sent to s1, s2, and s3.
+	p4.Publish("believe")            // Will be sent to s1 and s3.
 
 	// Unsubscribe from one topic and see that s2 no longer receives
 	// notifications.
 	s2.Unsubscribe("bob", "marley")
-	p2.Publish("i shot the sherriff")
+	p2.Publish("i shot the sherriff") // Will be sent to s1.
 
+	// Close all the Subscribers so that the above goroutine return.
 	if err := s1.Close(); err != nil {
 		panic(err)
 	}

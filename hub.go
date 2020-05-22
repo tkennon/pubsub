@@ -26,7 +26,7 @@ type Hub struct {
 	subscribers    map[*Subscriber]bool
 }
 
-// NewHub returns a new Hub that can be used to pubslish, and subscribe to,
+// NewHub returns a new Hub that can be used to publish, and subscribe to,
 // messages.
 func NewHub() *Hub {
 	return &Hub{
@@ -50,11 +50,11 @@ func GlobalHub() *Hub {
 // recursively walking the branch of the Hub tree described by keys. If the
 // branch does not exist then the recursion ends.
 //
-// For example, if there are two subscribers; one subscribed to ["alice"] and
-// another subscribed to ["alice", "bob"], then this function will publish
-// messages for ["alice"] to _only_ the first subscriber, and messages to
-// ["alice", "bob"] to both subscribers (since ["alice"] captures
-// ["alice", "bob"]).
+// For example, if there are two Subscribers; one subscribed to `["alice"]` and
+// another subscribed to `["alice", "bob"]`, then this function will publish
+// messages for `["alice"]` to _only_ the first Subscriber, and messages to
+// `["alice", "bob"]` to both Subscribers (since `["alice"]` captures
+// `["alice", "bob"]` as a subtopic).
 func (h *Hub) publish(msg interface{}, keys ...string) {
 	// Send message to all subscribers at this level.
 	h.subscribersMtx.RLock()
@@ -78,15 +78,15 @@ func (h *Hub) publish(msg interface{}, keys ...string) {
 	child.publish(msg, keys[1:]...)
 }
 
-// addSubscriber adds a subscriber to the Hubs children on the branch specified
-// by the keys. The subscriber will be sent all messages that are published to
-// it's branch and all sub-branches. If necessary, new child Hubs are created if
-// they do not exist for the specified branch.
+// addSubscriber adds a subscriber to the Hub's children on the topic specified
+// by the keys. The Subscriber will be sent all messages that are published to
+// its topic and all sub-topics. If necessary, new child Hubs are created if
+// they do not exist for the specified topic.
 //
-// For example, addSubscriber(s, "alice", "bob") will store the subscriber in
-// h.child["alice"].child["bob"].subscribers. Messages published to
-// ["alice", "bob", ...] will be sent to s, but messages published to
-// ["alice"] alone will not.
+// For example, `addSubscriber(s, "alice", "bob")` will store the Subscriber in
+// `h.child["alice"].child["bob"].subscribers`. Messages published to
+// `["alice", "bob", ...]` will be sent to `s`, but messages published to
+// `["alice"]` alone will not.
 func (h *Hub) addSubscriber(s *Subscriber, keys ...string) {
 	if len(keys) == 0 {
 		h.subscribersMtx.Lock()
@@ -105,8 +105,8 @@ func (h *Hub) addSubscriber(s *Subscriber, keys ...string) {
 	child.addSubscriber(s, keys[1:]...)
 }
 
-// removeSubscriber removes the subscriber from the branch of the Hub given by
-// keys. If no more subscribers remain for a child Hub then it is deleted.
+// removeSubscriber removes the subscriber from the topic of the Hub given by
+// keys. If no more Subscribers remain for a child Hub then it is deleted.
 func (h *Hub) removeSubscriber(s *Subscriber, keys ...string) {
 	if len(keys) == 0 {
 		h.subscribersMtx.Lock()
@@ -128,7 +128,7 @@ func (h *Hub) removeSubscriber(s *Subscriber, keys ...string) {
 	}
 }
 
-// hasSubscribers checks if the branch specified by keys has any subscribers or
+// hasSubscribers checks if the topic specified by keys has any subscribers or
 // any child Hubs (which indicate subscribers exist at deeper levels).
 func (h *Hub) hasSubscribers(keys ...string) bool {
 	if len(keys) == 0 {
@@ -157,7 +157,7 @@ func (h *Hub) Close() error {
 	h.subscribersMtx.Lock()
 	defer h.subscribersMtx.Unlock()
 	for sub := range h.subscribers {
-		sub.closeAndDrain()
+		sub.close()
 	}
 	h.subscribers = nil
 
