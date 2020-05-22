@@ -1,5 +1,5 @@
-// Package pubsub provides a Publisher-Subscriber infrastructure for message
-// passing within a single process.
+// Package pubsub provides a Publisher-Subscriber framework for message passing
+// within a single process.
 package pubsub
 
 import (

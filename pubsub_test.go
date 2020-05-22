@@ -52,13 +52,9 @@ func TestManyToMany(t *testing.T) {
 	defer h.Close()
 	p1 := h.NewPublisher("foo")
 	p2 := h.NewPublisher("bar")
-	s1 := h.NewSubscriber().
-		Subscribe("foo").
-		Subscribe("bar")
+	s1 := h.NewSubscriber().Subscribe("foo").Subscribe("bar")
 	defer s1.Close()
-	s2 := h.NewSubscriber().
-		Subscribe("foo").
-		Subscribe("bar")
+	s2 := h.NewSubscriber().Subscribe("foo").Subscribe("bar")
 	defer s2.Close()
 	p1.Publish("hello")
 	assert.Equal(t, "hello", <-s1.C)
@@ -80,11 +76,11 @@ func TestSubscribe(t *testing.T) {
 	assert.Zero(t, len(s.Topics()))
 	s.Subscribe("topic")
 	assert.True(t, s.IsSubscribed("topic"))
-	assert.Equal(t, [][]string{[]string{"topic"}}, s.Topics())
+	assert.Equal(t, [][]string{{"topic"}}, s.Topics())
 	assert.True(t, p.HasSubscribers())
 	s.Unsubscribe("does not exist")
 	assert.True(t, s.IsSubscribed("topic"))
-	assert.Equal(t, [][]string{[]string{"topic"}}, s.Topics())
+	assert.Equal(t, [][]string{{"topic"}}, s.Topics())
 	assert.True(t, p.HasSubscribers())
 	s.Unsubscribe("topic")
 	assert.False(t, s.IsSubscribed("topic"))
@@ -96,7 +92,7 @@ func TestBacklog(t *testing.T) {
 	h := pubsub.NewHub()
 	defer h.Close()
 	p := h.NewPublisher("topic")
-	s := h.NewSubscriber(pubsub.WithCapacity(2)).Subscribe("topic")
+	s := h.NewSubscriber(pubsub.WithCapacity(2), pubsub.WithAllowDrop()).Subscribe("topic")
 	defer s.Close()
 	for i := 0; i < 5; i++ {
 		p.Publish(i)
@@ -109,7 +105,7 @@ func TestBlocking(t *testing.T) {
 	h := pubsub.NewHub()
 	defer h.Close()
 	p := h.NewPublisher("topic")
-	s := h.NewSubscriber(pubsub.WithCapacity(1), pubsub.WithoutDrop()).Subscribe("topic")
+	s := h.NewSubscriber(pubsub.WithCapacity(1)).Subscribe("topic")
 	defer s.Close()
 
 	p.Publish("hello") // will send async

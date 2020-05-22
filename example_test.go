@@ -13,13 +13,13 @@ func Example() {
 	h := pubsub.NewHub()
 
 	// Subscribe to everything.
-	s1 := h.NewSubscriber(pubsub.WithoutDrop()).Subscribe()
+	s1 := h.NewSubscriber().Subscribe()
 	// Subscribe to p1, p2, and p3.
-	s2 := h.NewSubscriber(pubsub.WithoutDrop()).
+	s2 := h.NewSubscriber().
 		Subscribe("bob").
 		Subscribe("adele")
 	// Subscribe to p3 and p4.
-	s3 := h.NewSubscriber(pubsub.WithoutDrop()).
+	s3 := h.NewSubscriber().
 		Subscribe("bob", "marley").
 		Subscribe("cher")
 

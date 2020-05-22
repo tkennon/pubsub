@@ -32,15 +32,14 @@ type Subscriber struct {
 // NewSubscriber returns a new object that will receive messages about a topic
 // it is subscribed to. A Subscriber may subscribe to multiple topics. By
 // default, if the Subscriber is not ready to receive a message when it is
-// published, the message will be dropped. To add a non-zero buffer to the
-// Subscriber's channel, use the WithCapacity() SubscriberOption. To prevent
-// dropping of messages altogether then use WithoutDrop() SubscriberOption. Note
-// that if misused, this option can result in code deadlocking.
+// published, then the publishing goroutine wait for it to be ready. To add a
+// non-zero buffer to the Subscriber's channel, use the WithCapacity()
+// SubscriberOption. To allow dropping of messages if a Subscriber channel is
+// full then use WithAllowDrop() SubscriberOption.
 func (h *Hub) NewSubscriber(opts ...SubscriberOption) *Subscriber {
 	s := &Subscriber{
-		C:         make(chan interface{}, defaultCapacity),
-		hub:       h,
-		allowDrop: true,
+		C:   make(chan interface{}, defaultCapacity),
+		hub: h,
 	}
 	for _, f := range opts {
 		f(s)
@@ -55,18 +54,21 @@ type SubscriberOption func(*Subscriber)
 // WithCapacity sets the capacity of the Subscriber channel. This will be the
 // number of messages that can be published to the Subscriber without them being
 // read before they are either dropped or Publisher blocks while publishing
-// (depending on whether WithoutDrop() has been called at Subscriber creation).
+// (depending on whether WithAllowDrop() has also been called at Subscriber
+// creation).
 func WithCapacity(cap int) SubscriberOption {
 	return func(s *Subscriber) {
 		s.C = make(chan interface{}, cap)
 	}
 }
 
-// WithoutDrop does not allow the Subscriber to drop messages if its channel is
-// full. Use with care: this could lead to Publishers being blocked.
-func WithoutDrop() SubscriberOption {
+// WithAllowDrop allows the Subscriber to drop messages if its channel is
+// full. If all Subscribers are created with this option then publishing
+// goroutines will never block, however message delivery to the Subscriber is
+// not guaranteed.
+func WithAllowDrop() SubscriberOption {
 	return func(s *Subscriber) {
-		s.allowDrop = false
+		s.allowDrop = true
 	}
 }
 

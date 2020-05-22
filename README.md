@@ -39,29 +39,41 @@ Many Publishers and many Subscribers may be created for the same topic.
 ## Publishers
 
 Publishers are very simply created with `NewPublisher(...)` which accepts a
-variadic number of strings. Note that the Publisher created with no topic
-(`NewPublisher()`) will publish to every Subscriber, since every Subscriber
-subcribes to a subtopic of something.
+variadic number of strings describing the topic.
 
 ## Subscribers
 
 Subscribers are created with `NewSubscriber()`, and can subscribe or unsubscribe
 to topics through the methods `Subscribe()` and `Unsubscribe()`. Note that both
-methods return the Subscriber object so that these methods may be chained:
+methods return the Subscriber object allowing these methods to be chained:
 ```
 s := h.NewSubscriber().
     Subscribe("foo").
     Subscribe("bar", "baz").
     UnSubscribe("bill")
 ```
+It is allowed to subcribe to an empty topic: `s := NewSubscriber().Subscribe()`.
+This Subscriber will receive messages from all Publishers since all topics are a
+sub topic of something.
 
 ## Deadlocking
 
 Calls to `(*Publisher).Publish()` will block until the message has been sent to
 all Subscribers. If a Subscriber is not currently waiting on its message channel
-this can cause the publishing goroutine to block. As such, by default, if a
-message cannot be sent to a Subscriber it is dropped. To add buffering to the
-Subscriber message channel, use the `WithCapacity()` option when creating the
-Subscriber. If you wish to never drop a message then use the `WithoutDrop()`
-option. Users of this option must ensure that their code is always listening on
-the Subscriber's message channel.
+this can cause the publishing goroutine to block. Users of this package are
+encouraged to always have code listening on Subscriber channels to avoid
+deadlock. To add buffering to the Subscriber message channel, use the
+`WithCapacity(cap int)` option when creating the Subscriber. This option allows
+callers to specifiy the capacity of the Subscribers channel so that up to `cap`
+messages may be queued without blocking the publishing goroutine. If a caller
+does not require guaranteed message deilvery and can accept some messages being
+dropped, then Subscribers may be created with the `WithAllowDrop()` option that
+allows the message to be dropped if it cannot be sent on the Subscribers
+channel. This ensures the publishing goroutines will never block waiting for a
+subscribing goroutine.
+
+## Messages
+
+Publishers and Subscribers accept and return `interface{}` values as messages,
+so it is up to the subscribing goroutine to type cast the received message to
+the concrete type that is expected.
