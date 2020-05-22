@@ -46,9 +46,9 @@ func Example() {
 	// Unsubscribe from one topic and see that s2 no longer receives
 	// notifications.
 	s2.Unsubscribe("bob", "marley")
-	p2.Publish("i shot the sherriff") // Will be sent to s1.
+	p2.Publish("i shot the sherriff") // Will be sent to s1, but not s2.
 
-	// Close all the Subscribers so that the above goroutine return.
+	// Close all the Subscribers so that the above goroutines return.
 	if err := s1.Close(); err != nil {
 		panic(err)
 	}

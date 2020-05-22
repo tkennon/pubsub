@@ -11,7 +11,7 @@ const (
 	defaultCapacity = 1
 )
 
-// Subscriber is the type that receives notifications.
+// Subscriber is the type that receives messages.
 type Subscriber struct {
 	// These fields are written once at creation, and then read from thereafter.
 	// They require no synchronisation.
@@ -33,9 +33,9 @@ type Subscriber struct {
 // is subscribed to. A Subscriber may subscribe to multiple topics. By default,
 // if the Subscriber is not ready to receive a message when it is published, the
 // publishing goroutine will wait for it to be ready. To add a non-zero buffer
-// to the Subscriber's channel, use the WithCapacity() SubscriberOption. To
+// to the Subscriber's channel, use the `WithCapacity()` SubscriberOption. To
 // allow dropping of messages if a Subscriber channel is full then use
-// WithAllowDrop() SubscriberOption.
+// `WithAllowDrop()` SubscriberOption.
 func (h *Hub) NewSubscriber(opts ...SubscriberOption) *Subscriber {
 	s := &Subscriber{
 		hub: h,
@@ -54,7 +54,7 @@ type SubscriberOption func(*Subscriber)
 // WithCapacity sets the capacity of the Subscriber channel. This will be the
 // number of messages that can be published to the Subscriber without them being
 // read before they are either dropped or the publishing goroutine blocks
-// (depending on whether WithAllowDrop() has also been called at Subscriber
+// (depending on whether `WithAllowDrop()` has also been called at Subscriber
 // creation).
 func WithCapacity(cap int) SubscriberOption {
 	return func(s *Subscriber) {
@@ -72,12 +72,13 @@ func WithAllowDrop() SubscriberOption {
 	}
 }
 
-// Subscribe adds the topic to the set of topics the Subscriber is subscribed
-// to. Messages published on this topic will be sent to the Subscriber's
-// channel. This method returns the Subscriber for convenience of chaining
-// methods, e.g. `NewSubscriber().Subscribe("alice").Subscribe("bob")` creates a
-// new Subscriber that is subscribed to both `["alice"]` and `["bob"]` topics.
-// To Subscribe to a subtopic, simply specify multiple strings in a call to
+// Subscribe adds the topic (i.e. the list of keys) to the set of topics the
+// Subscriber is subscribed to. Messages published on this topic will be sent to
+// the Subscriber's channel. This method returns the Subscriber for convenience
+// of chaining methods, e.g.
+// `NewSubscriber().Subscribe("alice").Subscribe("bob")` creates a new
+// Subscriber that is subscribed to both `["alice"]` and `["bob"]` topics. To
+// Subscribe to a subtopic, simply specify multiple strings in a call to
 // Subscribe, e.g. `NewSubscriber().Subscribe("alice", "bob")` creates a new
 // Subscriber that is notified about messages published to the `["alice",
 // "bob"]` subtopic, but not the `["alice"]` parent topic. This feature allows
@@ -125,7 +126,7 @@ func (s *Subscriber) IsSubscribed(keys ...string) bool {
 	return false
 }
 
-// Close closes the SUbscriber's channel and unsubscribes the it from receiving
+// Close closes the Subscriber's channel and unsubscribes the it from receiving
 // future messages on all topics. It should be called when the Subscriber is no
 // longer needed. Subscribers will be unable to receive any messages from
 // Publishers after Close() has been called (the zero value of the channel will
