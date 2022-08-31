@@ -13,7 +13,7 @@ func TestOneToOne(t *testing.T) {
 	h := pubsub.NewHub()
 	defer h.Close()
 	p := h.NewPublisher("topic")
-	s := h.NewSubscriber().Subscribe("topic")
+	s := h.NewSubscriber(pubsub.WithCapacity(1)).Subscribe("topic")
 	defer s.Close()
 	p.Publish("hello")
 	assert.Equal(t, "hello", <-s.C)
@@ -23,9 +23,9 @@ func TestOneToMany(t *testing.T) {
 	h := pubsub.NewHub()
 	defer h.Close()
 	p := h.NewPublisher("topic")
-	s1 := h.NewSubscriber().Subscribe("topic")
+	s1 := h.NewSubscriber(pubsub.WithCapacity(1)).Subscribe("topic")
 	defer s1.Close()
-	s2 := h.NewSubscriber().Subscribe("topic")
+	s2 := h.NewSubscriber(pubsub.WithCapacity(1)).Subscribe("topic")
 	defer s2.Close()
 	p.Publish("hello")
 	assert.Equal(t, "hello", <-s1.C)
@@ -37,7 +37,7 @@ func TestManyToOne(t *testing.T) {
 	defer h.Close()
 	p1 := h.NewPublisher("foo")
 	p2 := h.NewPublisher("bar")
-	s := h.NewSubscriber().
+	s := h.NewSubscriber(pubsub.WithCapacity(1)).
 		Subscribe("foo").
 		Subscribe("bar")
 	defer s.Close()
@@ -52,9 +52,9 @@ func TestManyToMany(t *testing.T) {
 	defer h.Close()
 	p1 := h.NewPublisher("foo")
 	p2 := h.NewPublisher("bar")
-	s1 := h.NewSubscriber().Subscribe("foo").Subscribe("bar")
+	s1 := h.NewSubscriber(pubsub.WithCapacity(1)).Subscribe("foo").Subscribe("bar")
 	defer s1.Close()
-	s2 := h.NewSubscriber().Subscribe("foo").Subscribe("bar")
+	s2 := h.NewSubscriber(pubsub.WithCapacity(1)).Subscribe("foo").Subscribe("bar")
 	defer s2.Close()
 	p1.Publish("hello")
 	assert.Equal(t, "hello", <-s1.C)
@@ -126,7 +126,7 @@ func TestBlocking(t *testing.T) {
 
 func TestGlobalHub(t *testing.T) {
 	p := pubsub.GlobalHub().NewPublisher("topic")
-	s := pubsub.GlobalHub().NewSubscriber().Subscribe("topic")
+	s := pubsub.GlobalHub().NewSubscriber(pubsub.WithCapacity(1)).Subscribe("topic")
 	p.Publish("hello")
 	assert.Equal(t, "hello", <-s.C)
 }

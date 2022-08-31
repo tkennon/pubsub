@@ -5,12 +5,6 @@ import (
 	"sync/atomic"
 )
 
-const (
-	// The minimum capacity to allow to async messages being sent on new
-	// Subscribers.
-	defaultCapacity = 1
-)
-
 // Subscriber is the type that receives messages.
 type Subscriber struct {
 	// These fields are written once at creation, and then read from thereafter.
@@ -39,7 +33,7 @@ type Subscriber struct {
 func (h *Hub) NewSubscriber(opts ...SubscriberOption) *Subscriber {
 	s := &Subscriber{
 		hub: h,
-		C:   make(chan interface{}, defaultCapacity),
+		C:   make(chan interface{}),
 	}
 	for _, f := range opts {
 		f(s)
@@ -72,21 +66,21 @@ func WithAllowDrop() SubscriberOption {
 	}
 }
 
-// Subscribe adds the topic (i.e. the list of keys) to the set of topics the
-// Subscriber is subscribed to. Messages published on this topic will be sent to
-// the Subscriber's channel. This method returns the Subscriber for convenience
-// of chaining methods, e.g.
-// `NewSubscriber().Subscribe("alice").Subscribe("bob")` creates a new
-// Subscriber that is subscribed to both `["alice"]` and `["bob"]` topics. To
-// Subscribe to a subtopic, simply specify multiple strings in a call to
-// Subscribe, e.g. `NewSubscriber().Subscribe("alice", "bob")` creates a new
+// Subscribe adds the topic(s) to the set of topics the Subscriber is subscribed
+// to. Messages published on this topic will be sent to the Subscriber's
+// channel. This method returns the Subscriber for convenience of chaining
+// methods, e.g.
+//   `NewSubscriber().Subscribe("alice").Subscribe("bob")`
+// creates a new Subscriber that is subscribed to both `["alice"]` and `["bob"]`
+// topics. To Subscribe to a subtopic, simply specify multiple strings in a call
+// to Subscribe, e.g. `NewSubscriber().Subscribe("alice", "bob")` creates a new
 // Subscriber that is notified about messages published to the `["alice",
 // "bob"]` subtopic, but not the `["alice"]` parent topic. This feature allows
 // fine grained subscriptions to be made.
-func (s *Subscriber) Subscribe(keys ...string) *Subscriber {
-	s.hub.addSubscriber(s, keys...)
+func (s *Subscriber) Subscribe(topics ...string) *Subscriber {
+	s.hub.addSubscriber(s, topics...)
 	s.topicsMtx.Lock()
-	s.topics = append(s.topics, keys)
+	s.topics = append(s.topics, topics)
 	s.topicsMtx.Unlock()
 	return s
 }
@@ -94,15 +88,15 @@ func (s *Subscriber) Subscribe(keys ...string) *Subscriber {
 // Unsubscribe removes the topic from the set of topics that the Subscriber is
 // subscribed to. If the Subscriber is not subscribed to the topic, then this
 // method is a no-op.
-func (s *Subscriber) Unsubscribe(keys ...string) *Subscriber {
+func (s *Subscriber) Unsubscribe(topics ...string) *Subscriber {
 	s.topicsMtx.Lock()
 	for i, topic := range s.topics {
-		if equalTopics(topic, keys) {
+		if equalTopics(topic, topics) {
 			s.topics = append(s.topics[:i], s.topics[i+1:]...)
 		}
 	}
 	s.topicsMtx.Unlock()
-	s.hub.removeSubscriber(s, keys...)
+	s.hub.removeSubscriber(s, topics...)
 	return s
 }
 
@@ -152,7 +146,8 @@ func (s *Subscriber) NumSent() uint64 {
 
 // NumDropped returns a count of the number of messages dropped by the
 // Subscriber across all topics because its channel was full at the time the
-// message was published.
+// message was published. This will be zero unless `WithAllowDrop()` was used
+// when creating the Subscriber.
 func (s *Subscriber) NumDropped() uint64 {
 	return atomic.LoadUint64(&s.dropped)
 }

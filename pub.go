@@ -8,7 +8,7 @@ type Publisher struct {
 }
 
 // NewPublisher returns a new object that will publish its messages to all
-// Subscribers subscribed to the topic (i.e. the list of keys). The Publisher
+// Subscribers subscribed to the topic(s). The Publisher
 // may be created for subtopics by specifiying multiple strings. e.g.
 // `NewPublisher("alice", "bob")` will publish messages to Subscribers that have
 // subscribed to `["alice"]`, or `["alice", "bob"]`, but not `["alice", "bob",
@@ -22,7 +22,7 @@ func (h *Hub) NewPublisher(keys ...string) *Publisher {
 
 // Publish publishes the message to all Subscribers that have subscribed to the
 // Publisher's topic. Note that the message is sent "as is" to the Subscribers.
-// If the message is a pointer variable then the subscribering goroutines must
+// If the message is a pointer variable then the subscribing goroutines must
 // ensure they synchronise any writes. The publishing will occur synchronously,
 // and the Subscribers will be notified in an unspecified order. If a Subscriber
 // is not ready to receive the message then the message may be dropped (if the
